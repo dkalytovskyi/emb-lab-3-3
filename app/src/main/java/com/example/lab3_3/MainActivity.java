@@ -4,19 +4,24 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.ProgressDialog;
 import android.os.Bundle;
-import android.os.Handler;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     EditText[] input = new EditText[5];
     Button startButton;
-    TextView res;
-    ProgressDialog progressBar;
-    Handler myHandler = new Handler();
+    TextView res, execTimeout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,12 +32,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onClick(View v) {
-
-        progressBar = new ProgressDialog(v.getContext());
-        progressBar.setCancelable(true);
-        progressBar.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-        progressBar.setProgress(0);
-        progressBar.setMax(100);
 
         res.setText("");
         final Integer[] inputInteger = new Integer[5];
@@ -57,9 +56,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
 
         }
-        Thread th = new Thread(new Runnable() {
-            public void run() {
 
+        ExecutorService executor = Executors.newCachedThreadPool();
+        Callable<Object> task = new Callable<Object>() {
+            public Object call() throws InterruptedException {
                 Genetic genetic = new Genetic(
                         inputInteger[0],
                         inputInteger[1],
@@ -68,28 +68,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         inputInteger[4]
                 );
                 String result = genetic.calculate();
-                res.setText(result);
-
+                return result;
             }
-        });
-        Thread th2 = new Thread(new Runnable() {
-            public void run() {
-                myHandler.post(new Runnable() {
-                    public void run() {
-                        progressBar.cancel();
+        };
+        Future<Object> future = executor.submit(task);
 
-                    }
-                });
-            }
-        });
-
-        myHandler.postDelayed(th, 330);
-
-        progressBar.show();
-
-        myHandler.postDelayed(th2, 900);
-
-
+        try {
+            Object result = future.get(Integer.valueOf(execTimeout.getText().toString()), TimeUnit.SECONDS);
+            res.setText(result.toString());
+        } catch (TimeoutException ex) {
+            res.setText("Execution took too long");
+        } catch (InterruptedException e) {
+            res.setText("Something went wrong");
+        } catch (ExecutionException e) {
+            res.setText("Something went wrong");
+        } finally {
+            future.cancel(true);
+        }
     }
 
     public void setup() {
@@ -98,6 +93,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         input[2] = findViewById(R.id.x3);
         input[3] = findViewById(R.id.x4);
         input[4] = findViewById(R.id.y);
+        execTimeout = findViewById(R.id.editTimeout);
         res = findViewById(R.id.result);
         startButton = findViewById(R.id.button);
         startButton.setOnClickListener(this);

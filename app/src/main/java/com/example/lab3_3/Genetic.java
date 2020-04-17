@@ -14,7 +14,8 @@ public class Genetic {
         y = Y;
     }
 
-    public String calculate() {
+    public String calculate() throws InterruptedException {
+        Thread.sleep(3000);
         Random r = new Random();
         Double probability = 0.6;
 
